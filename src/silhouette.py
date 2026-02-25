@@ -32,16 +32,67 @@ def auto_find_levels(binary_mask, y_shoulder, y_hip, x_min, x_max, scan_step_px,
 
     ys, smoothed = _smooth_widths(widths, smooth_window)
 
-    zone_chest = (ys >= y_shoulder + torso_h * 0.05) & (ys <= y_shoulder + torso_h * 0.50)
-    zone_hips = (ys >= y_shoulder + torso_h * 0.50) & (ys <= y_end)
+    # В верхней части торса ширину часто искажают руки/подмышки,
+    # поэтому ищем грудь в более узком диапазоне и с мягким
+    # приоритетом к «классическому» уровню ~35% от высоты торса.
+    chest_zone = (ys >= y_shoulder + torso_h * 0.20) & (ys <= y_shoulder + torso_h * 0.55)
+    y_chest = _pick_weighted_extremum(
+        ys,
+        smoothed,
+        chest_zone,
+        center_y=y_shoulder + torso_h * 0.36,
+        extremum="max",
+        fallback_y=y_shoulder + torso_h * 0.36,
+    )
 
-    y_chest = int(ys[zone_chest][np.argmax(smoothed[zone_chest])]) if zone_chest.any() else int(y_shoulder + torso_h * 0.20)
-    y_hips = int(ys[zone_hips][np.argmax(smoothed[zone_hips])]) if zone_hips.any() else int(y_hip + torso_h * 0.10)
+    # Бёдра оставляем близко к предыдущей стратегии — максимум ширины
+    # в нижней части туловища.
+    hips_zone = (ys >= y_shoulder + torso_h * 0.55) & (ys <= y_end)
+    y_hips = _pick_weighted_extremum(
+        ys,
+        smoothed,
+        hips_zone,
+        center_y=y_hip + torso_h * 0.08,
+        extremum="max",
+        fallback_y=y_hip + torso_h * 0.10,
+    )
 
-    zone_waist = (ys > y_chest) & (ys < y_hips)
-    y_waist = int(ys[zone_waist][np.argmin(smoothed[zone_waist])]) if zone_waist.any() and zone_waist.sum() > 3 else int((y_chest + y_hips) / 2)
+    # Талию ищем как минимум между грудью и бёдрами, но тоже с приоритетом
+    # к типичной зоне, чтобы не «залипать» слишком высоко.
+    min_gap = torso_h * 0.10
+    waist_zone = (ys >= y_chest + min_gap) & (ys <= y_hips - min_gap)
+    y_waist = _pick_weighted_extremum(
+        ys,
+        smoothed,
+        waist_zone,
+        center_y=y_shoulder + torso_h * 0.62,
+        extremum="min",
+        fallback_y=(y_chest + y_hips) / 2,
+    )
 
     return y_chest, y_waist, y_hips
+
+
+def _pick_weighted_extremum(ys: np.ndarray, values: np.ndarray, zone: np.ndarray, center_y: float, extremum: str, fallback_y: float) -> int:
+    if not zone.any():
+        return int(fallback_y)
+
+    zone_ys = ys[zone].astype(float)
+    zone_vals = values[zone].astype(float)
+
+    spread = max((zone_ys[-1] - zone_ys[0]) / 2.0, 1.0)
+    distance = np.abs(zone_ys - center_y)
+    weight = np.exp(-0.5 * (distance / spread) ** 2)
+
+    if extremum == "max":
+        score = zone_vals * (0.65 + 0.35 * weight)
+        idx = int(np.argmax(score))
+    else:
+        norm = max(np.max(zone_vals), 1.0)
+        score = (zone_vals / norm) + (1.0 - weight) * 0.20
+        idx = int(np.argmin(score))
+
+    return int(zone_ys[idx])
 
 
 def measure_width(binary_mask, y_px, x_min, x_max, mask_window_px) -> tuple[int, int, int]:
