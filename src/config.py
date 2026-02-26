@@ -27,6 +27,7 @@ class SilhouetteConfig:
 @dataclass(frozen=True)
 class OutputConfig:
     result_dir: Path = Path("result")
+    segmented_name: str = "segmented.jpg"
     front_debug_name: str = "front_measurements.jpg"
     side_debug_name: str = "side_measurements.jpg"
     front_mask_name: str = "front_mask.jpg"

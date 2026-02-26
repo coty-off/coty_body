@@ -7,7 +7,6 @@ import numpy as np
 from PIL import Image
 from rembg import remove
 
-
 def get_body_mask(image: np.ndarray) -> np.ndarray:
     pil_image = Image.fromarray(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
     output = remove(pil_image)

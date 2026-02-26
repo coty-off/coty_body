@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 from dataclasses import asdict
+import cv2
 
 from .config import AppConfig, DEFAULT_CONFIG
 from .io_utils import load_image
 from .pose import PoseEstimator, extract_torso_anchors
 from .silhouette import auto_find_levels, ellipse_circumference, get_body_mask, get_height_pixels, measure_width
 from .visualization import draw_measurement_lines, save_outputs
+from .segmentation import draw_body_segments
 
 
 LEVELS = ("chest", "waist", "hips")
@@ -93,6 +95,9 @@ def run_pipeline(config: AppConfig = DEFAULT_CONFIG) -> dict:
         config.output.front_mask_name,
         config.output.side_mask_name,
     )
+
+    segmented = draw_body_segments(front_image, front_keypoints, front_mask)
+    cv2.imwrite(str(config.output.result_dir / "segmented.jpg"), segmented)
 
     return {
         "config": asdict(config),
