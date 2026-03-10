@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import asdict
+from typing import Dict, Any
+
 import cv2
+import numpy as np
 
 from .config import AppConfig, DEFAULT_CONFIG
 from .io_utils import load_image
@@ -16,7 +19,6 @@ from .silhouette import (
     measure_width,
 )
 from .visualization import draw_measurement_lines, save_outputs
-from .segmentation import draw_body_segments
 from .measurement_model import classify_body_type
 
 
@@ -66,15 +68,19 @@ def _collect_sizes(mask, anchors, ratio, silhouette_cfg):
     return result
 
 
-def run_pipeline(config: AppConfig = DEFAULT_CONFIG) -> dict:
-    front_image = load_image(config.inputs.front_image, config.silhouette.max_image_side)
-    side_image = load_image(config.inputs.side_image, config.silhouette.max_image_side)
+def run_pipeline_from_arrays(
+    front_image: np.ndarray,
+    side_image: np.ndarray,
+    config: AppConfig,
+    estimator: PoseEstimator | None = None,
+) -> Dict[str, Any]:
+    if estimator is None:
+        estimator = PoseEstimator(config.model.yolo_model_path)
 
-    estimator = PoseEstimator(config.model.yolo_model_path)
     front_keypoints = estimator.get_keypoints(front_image)
     side_keypoints = estimator.get_keypoints(side_image)
     if front_keypoints is None or side_keypoints is None:
-        raise RuntimeError("YOLO11x-pose не обнаружил человека на одном из изображений.")
+        raise RuntimeError("YOLO26x-pose не обнаружил человека на одном из изображений.")
 
     front_anchors = extract_torso_anchors(
         front_keypoints, front_image.shape[1], config.silhouette.torso_x_margin
@@ -88,13 +94,11 @@ def run_pipeline(config: AppConfig = DEFAULT_CONFIG) -> dict:
 
     side_mask = extract_side_torso_mask(side_mask, side_keypoints)
 
-    # Вычисляем X-диапазон для профиля из маски, а не из keypoints.
-    # y_end немного расширяем вниз (hip_search_extra), как в auto_find_levels.
+    # вычисление X-диапазон для профиля из маски
     side_margin_px = int(side_image.shape[1] * config.silhouette.torso_x_margin)
     y_s = side_anchors_raw["y_shoulder"]
     y_h = side_anchors_raw["y_hip"]
     y_end_side = y_h + (y_h - y_s) * config.silhouette.hip_search_extra
-    torso_h = y_h - y_s
 
     x_min_side, x_max_side = get_torso_x_extent_robust(
         side_mask,
@@ -117,7 +121,7 @@ def run_pipeline(config: AppConfig = DEFAULT_CONFIG) -> dict:
     px_to_cm = config.inputs.user_height_cm / ((front_height_px + side_height_px) / 2)
 
     front_sizes = _collect_sizes(front_mask, front_anchors, px_to_cm, config.silhouette)
-    side_sizes  = _collect_sizes(side_mask,  side_anchors,  px_to_cm, config.silhouette)
+    side_sizes = _collect_sizes(side_mask, side_anchors, px_to_cm, config.silhouette)
 
     final = {}
     for level in LEVELS:
@@ -128,15 +132,17 @@ def run_pipeline(config: AppConfig = DEFAULT_CONFIG) -> dict:
             "side_depth_cm": depth_cm,
             "circumference_cm": ellipse_circumference(width_cm, depth_cm),
             "front_y": front_sizes[level]["y"],
-            "side_y":  side_sizes[level]["y"],
+            "side_y": side_sizes[level]["y"],
         }
 
     front_debug = draw_measurement_lines(front_image, front_sizes, (0, 220, 255))
-    side_debug  = draw_measurement_lines(side_image,  side_sizes,  (255, 160, 0))
+    side_debug = draw_measurement_lines(side_image, side_sizes, (255, 160, 0))
     save_outputs(
         config.output.result_dir,
-        front_debug, side_debug,
-        front_mask, side_mask,
+        front_debug,
+        side_debug,
+        front_mask,
+        side_mask,
         config.output.front_debug_name,
         config.output.side_debug_name,
         config.output.front_mask_name,
@@ -156,7 +162,13 @@ def run_pipeline(config: AppConfig = DEFAULT_CONFIG) -> dict:
         "config": asdict(config),
         "scale_cm_per_px": px_to_cm,
         "front_height_px": front_height_px,
-        "side_height_px":  side_height_px,
-        "measurements":    final,
-        "body_type":       body_type,
+        "side_height_px": side_height_px,
+        "measurements": final,
+        "body_type": body_type,
     }
+
+
+def run_pipeline(config: AppConfig = DEFAULT_CONFIG) -> dict:
+    front_image = load_image(config.inputs.front_image, config.silhouette.max_image_side)
+    side_image = load_image(config.inputs.side_image, config.silhouette.max_image_side)
+    return run_pipeline_from_arrays(front_image, side_image, config)

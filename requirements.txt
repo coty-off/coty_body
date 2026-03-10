@@ -16,3 +16,7 @@ pillow>=10.0.0
 
 # Утилиты
 dataclasses-json==0.6.3
+
+# API
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
