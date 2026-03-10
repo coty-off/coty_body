@@ -8,11 +8,11 @@ from .pipeline import run_pipeline
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Расчет мерок по фото (front+side) на базе YOLO11x-pose.")
+    parser = argparse.ArgumentParser(description="Расчет мерок по фото (front+side) на базе YOLO26x-pose.")
     parser.add_argument("--front", type=Path, required=True, help="Путь к фото в анфас")
     parser.add_argument("--side", type=Path, required=True, help="Путь к фото в профиль")
     parser.add_argument("--height", type=float, required=True, help="Рост человека, см")
-    parser.add_argument("--model", default="yolo11x-pose.pt", help="Путь к весам YOLO pose")
+    parser.add_argument("--model", default="yolo26x-pose.pt", help="Путь к весам YOLO pose")
     parser.add_argument("--result-dir", type=Path, default=Path("result"), help="Папка для результатов")
     return parser
 

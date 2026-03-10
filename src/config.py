@@ -11,7 +11,7 @@ class InputConfig:
 
 @dataclass(frozen=True)
 class ModelConfig:
-    yolo_model_path: str = "yolo11x-pose.pt"
+    yolo_model_path: str = "yolo26x-pose.pt"
 
 
 @dataclass(frozen=True)
