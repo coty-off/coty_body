@@ -36,6 +36,7 @@ def main() -> None:
             f"depth(side)={payload['side_depth_cm']:.1f}, "
             f"circ≈{payload['circumference_cm']:.1f}"
         )
+    print(f"\nТип фигуры: {result['body_type']}")
 
 
 if __name__ == "__main__":

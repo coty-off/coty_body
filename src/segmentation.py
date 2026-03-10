@@ -271,6 +271,73 @@ def _draw_label(
 
     cv2.putText(canvas, text, (x0, y0), font, font_scale, color, thickness, cv2.LINE_AA)
 
+def extract_side_torso_mask(
+    side_mask: np.ndarray,
+    keypoints: np.ndarray,
+    erode_px: int = 1,
+) -> np.ndarray:
+    """
+    Удаляет руку из боковой маски через эрозию + связные компоненты + дилатацию.
+
+    Шаги:
+    1. Вырезаем зону торса по Y из keypoints
+    2. Эрозия — разрывает тонкий перешеек между рукой и телом
+    3. Берём наибольший связный компонент (торс)
+    4. Дилатация — восстанавливаем исходные границы торса
+    5. Пересечение с оригинальной маской — не добавляем лишнего
+    """
+    h, w = side_mask.shape[:2]
+
+    y_shoulder = _avg_y(keypoints, KP_LEFT_SHOULDER, KP_RIGHT_SHOULDER)
+    y_hip      = _avg_y(keypoints, KP_LEFT_HIP,      KP_RIGHT_HIP)
+
+    if y_shoulder == 0 or y_hip == 0:
+        return side_mask.copy()
+
+    torso_h = y_hip - y_shoulder
+    y_top = max(0, int(y_shoulder))
+    y_bot = min(h, int(y_hip + torso_h * 0.35))
+
+    # Вырезаем зону торса
+    torso_zone = np.zeros((h, w), dtype=np.uint8)
+    torso_zone[y_top:y_bot, :] = side_mask[y_top:y_bot, :]
+
+    # Шаг 1: эрозия — разрываем тонкое соединение руки с телом
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (erode_px, erode_px))
+    eroded = cv2.erode(torso_zone, kernel)
+
+    # Шаг 2: связные компоненты на эродированной маске
+    num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(
+        eroded, connectivity=8
+    )
+
+    if num_labels <= 1:
+        # Эрозия съела всё — уменьшаем erode_px и пробуем снова
+        kernel_small = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (max(3, erode_px // 2), max(3, erode_px // 2)))
+        eroded = cv2.erode(torso_zone, kernel_small)
+        num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(eroded, connectivity=8)
+        if num_labels <= 1:
+            return side_mask.copy()
+        kernel = kernel_small
+
+    # Берём наибольший компонент (торс), пропуская фон
+    largest_label = 1 + int(np.argmax(stats[1:, cv2.CC_STAT_AREA]))
+
+    torso_only = np.zeros((h, w), dtype=np.uint8)
+    torso_only[labels == largest_label] = 255
+
+    # Шаг 3: дилатация — возвращаем границы обратно
+    torso_dilated = cv2.dilate(torso_only, kernel)
+
+    # Шаг 4: пересечение с оригинальной маской — не выходим за силуэт
+    torso_clean = cv2.bitwise_and(torso_zone, torso_dilated)
+
+    # Собираем финальную маску: зона торса — чистая, остальное — оригинал
+    result = side_mask.copy()
+    result[y_top:y_bot, :] = torso_clean[y_top:y_bot, :]
+
+    return result
+
 def _draw_legend(canvas: np.ndarray) -> np.ndarray:
     h, w = canvas.shape[:2]
     item_h = 24

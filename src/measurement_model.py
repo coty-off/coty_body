@@ -19,11 +19,10 @@ from pathlib import Path
 N_POINTS = 100
 
 # FFIT-пороги (Lee, Istook, Nam & Park, 2007), конвертированы в сантиметры
-_IN = 2.54
-_T1 = 1   * _IN   # 2.54  см
-_T2 = 3.6 * _IN   # 9.14  см
-_T3 = 9   * _IN   # 22.86 см
-_T4 = 10  * _IN   # 25.40 см
+_T1 = 2.54
+_T2 = 9.14
+_T3 = 22.86
+_T4 = 25.40
 
 
 def classify_body_type(chest_cm: float, waist_cm: float, hip_cm: float) -> str:
@@ -36,12 +35,17 @@ def classify_body_type(chest_cm: float, waist_cm: float, hip_cm: float) -> str:
     bw = chest_cm - waist_cm
     hw = hip_cm   - waist_cm
 
-    if abs(bh) <= _T1 and (bw >= _T3 or hw >= _T3):   return "Hourglass"
-    if _T1 < bh < _T4 and bw >= _T3:                  return "Top Hourglass"
-    if _T2 <= hb < _T4 and hw >= _T3:                 return "Bottom Hourglass"
-    if hb >= _T2 and 0 <= hw < _T3:                   return "Triangle"
-    if bh >= _T2 and bw < _T3 and hw >= 0:            return "Inverted Triangle"
-    if hb < _T2 and bh < _T2 and 0 <= bw < _T3 and 0 <= hw < _T4:
+    if bh <= _T1 and hb < _T2 and (bw >= _T3 or hw >= _T4):
+        return "Hourglass"
+    if _T1 < bh < _T4 and bw >= _T3:
+        return "Top Hourglass"
+    if _T2 <= hb < _T4 and hw >= _T3:
+        return "Bottom Hourglass"
+    if hb >= _T2 and hw < _T3:
+        return "Triangle"
+    if bh >= _T2 and bw < _T3:
+        return "Inverted Triangle"
+    if hb < _T2 and bh < _T2 and bw < _T3 and hw < _T4:
         return "Rectangle"
     return "Undefined"
 

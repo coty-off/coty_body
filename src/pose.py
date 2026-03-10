@@ -35,12 +35,16 @@ def extract_torso_anchors(keypoints: np.ndarray, img_w: int, torso_x_margin: flo
 
     margin = img_w * torso_x_margin
     all_x = [x_shoulder_l, x_shoulder_r, x_hip_l, x_hip_r]
+    x_sh_min = max(0.0, float(min(x_shoulder_l, x_shoulder_r)))
+    x_sh_max = min(float(img_w), float(max(x_shoulder_l, x_shoulder_r)))
 
     return {
-        "y_shoulder": y_shoulder,
-        "y_hip": y_hip,
-        "torso_x_min": max(0, min(all_x) - margin),
-        "torso_x_max": min(img_w, max(all_x) + margin),
+        "y_shoulder":      y_shoulder,
+        "y_hip":           y_hip,
+        "torso_x_min":     max(0, min(all_x) - margin),
+        "torso_x_max":     min(img_w, max(all_x) + margin),
+        "x_shoulder_min":  x_sh_min,
+        "x_shoulder_max":  x_sh_max,
     }
 
 

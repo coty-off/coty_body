@@ -156,3 +156,45 @@ def _find_largest_segment(row: np.ndarray) -> tuple[int, int]:
 
 def _clip_x(x_min, x_max, width: int) -> tuple[int, int]:
     return int(np.clip(x_min, 0, width)), int(np.clip(x_max, 0, width))
+
+
+def get_torso_x_extent_robust(
+        mask: np.ndarray,
+        y_start: float,
+        y_end: float,
+        margin_px: int = 0,
+        percentile: float = 50.0,  # 50 = медиана; можно опустить до 25, если волосы очень густые
+) -> tuple[int, int]:
+    """
+    Надёжная версия get_torso_x_extent.
+
+    Вместо того чтобы брать глобальный x_min/x_max по всей зоне
+    (что делает результат чувствительным к выбросам — волосам, рукам),
+    мы для каждой строки находим левый и правый край маски,
+    а затем берём percentile по всем строкам.
+
+    Медиана (percentile=50) игнорирует строки с волосами,
+    возвращая типичный контур спины.
+    """
+    y0 = int(max(0, y_start))
+    y1 = int(min(mask.shape[0], y_end))
+    if y0 >= y1:
+        return 0, mask.shape[1]
+
+    x_mins, x_maxs = [], []
+    for y in range(y0, y1):
+        cols = np.where(mask[y, :] == 255)[0]
+        if len(cols) >= 2:
+            x_mins.append(int(cols[0]))
+            x_maxs.append(int(cols[-1]))
+
+    if not x_maxs:
+        return 0, mask.shape[1]
+
+    x_min_result = int(np.percentile(x_mins, 100 - percentile))  # для x_min берём нижний хвост
+    x_max_result = int(np.percentile(x_maxs, percentile))
+
+    return (
+        max(0, x_min_result - margin_px),
+        min(mask.shape[1], x_max_result + margin_px),
+    )
