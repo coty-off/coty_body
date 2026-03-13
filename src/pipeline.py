@@ -19,7 +19,7 @@ from .silhouette import (
     measure_width,
 )
 from .visualization import draw_measurement_lines, save_outputs
-from .measurement_model import classify_body_type
+from .measurement import classify_body_type
 
 
 LEVELS = ("chest", "waist", "hips")
