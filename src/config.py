@@ -23,23 +23,11 @@ class SilhouetteConfig:
     hip_search_extra: float = 0.40
     torso_x_margin: float = 0.08
 
-
-@dataclass(frozen=True)
-class OutputConfig:
-    result_dir: Path = Path("result")
-    segmented_name: str = "segmented.jpg"
-    front_debug_name: str = "front_measurements.jpg"
-    side_debug_name: str = "side_measurements.jpg"
-    front_mask_name: str = "front_mask.jpg"
-    side_mask_name: str = "side_mask.jpg"
-
-
 @dataclass(frozen=True)
 class AppConfig:
     inputs: InputConfig = InputConfig()
     model: ModelConfig = ModelConfig()
     silhouette: SilhouetteConfig = SilhouetteConfig()
-    output: OutputConfig = OutputConfig()
 
 
 DEFAULT_CONFIG = AppConfig()

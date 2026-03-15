@@ -3,13 +3,11 @@ from __future__ import annotations
 from dataclasses import asdict
 from typing import Dict, Any
 
-import cv2
 import numpy as np
 
 from .config import AppConfig, DEFAULT_CONFIG
 from .io_utils import load_image
 from .pose import PoseEstimator, extract_torso_anchors
-from .segmentation import draw_body_segments, extract_side_torso_mask
 from .silhouette import (
     auto_find_levels,
     ellipse_circumference,
@@ -18,7 +16,6 @@ from .silhouette import (
     get_torso_x_extent_robust,
     measure_width,
 )
-from .visualization import draw_measurement_lines, save_outputs
 from .measurement import classify_body_type
 
 
@@ -92,8 +89,6 @@ def run_pipeline_from_arrays(
     front_mask = get_body_mask(front_image)
     side_mask = get_body_mask(side_image)
 
-    side_mask = extract_side_torso_mask(side_mask, side_keypoints)
-
     # вычисление X-диапазон для профиля из маски
     side_margin_px = int(side_image.shape[1] * config.silhouette.torso_x_margin)
     y_s = side_anchors_raw["y_shoulder"]
@@ -134,23 +129,6 @@ def run_pipeline_from_arrays(
             "front_y": front_sizes[level]["y"],
             "side_y": side_sizes[level]["y"],
         }
-
-    front_debug = draw_measurement_lines(front_image, front_sizes, (0, 220, 255))
-    side_debug = draw_measurement_lines(side_image, side_sizes, (255, 160, 0))
-    save_outputs(
-        config.output.result_dir,
-        front_debug,
-        side_debug,
-        front_mask,
-        side_mask,
-        config.output.front_debug_name,
-        config.output.side_debug_name,
-        config.output.front_mask_name,
-        config.output.side_mask_name,
-    )
-
-    segmented = draw_body_segments(front_image, front_keypoints, front_mask)
-    cv2.imwrite(str(config.output.result_dir / "segmented.jpg"), segmented)
 
     body_type = classify_body_type(
         chest_cm=final["chest"]["circumference_cm"],

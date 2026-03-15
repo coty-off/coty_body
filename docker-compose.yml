@@ -1,0 +1,24 @@
+services:
+
+  worker:
+    build: .
+    command: celery -A celery_app worker --loglevel=info -P solo --concurrency=1
+    env_file: .env
+    volumes:
+      - photos_tmp:/tmp/photos
+    restart: unless-stopped
+
+  flower:
+    build: .
+    command: celery -A celery_app flower --port=5555
+    env_file: .env
+    ports:
+      - "5555:5555"
+    restart: unless-stopped
+
+# Shared volume — API сохраняет фото сюда, воркер читает отсюда.
+# Если оба репо на одной машине — volume должен быть общим.
+volumes:
+  photos_tmp:
+    external: true
+    name: coty_body_api_photos_tmp

@@ -6,4 +6,4 @@ models
 datasets
 dataset_test.py
 
-.env.apikey
+.env
