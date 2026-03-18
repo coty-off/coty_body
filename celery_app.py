@@ -13,6 +13,7 @@ celery = Celery(
     "coty_body_worker",
     broker=REDIS_BROKER,
     backend=REDIS_BACKEND,
+    include=["tasks"]
 )
 
 celery.conf.update(
