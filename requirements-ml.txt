@@ -1,0 +1,9 @@
+--extra-index-url https://download.pytorch.org/whl/cpu
+numpy>=1.24.0,<2.0.0
+torch==2.2.2+cpu
+
+llvmlite==0.43.0
+rembg[cpu]
+ultralytics
+opencv-python-headless
+pillow>=10.0.0

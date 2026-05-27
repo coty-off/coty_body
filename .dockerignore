@@ -1,0 +1,7 @@
+yolo26x-pose.pt
+datasets/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.git/

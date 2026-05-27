@@ -1,22 +1,5 @@
-# ML пайплайн
-rembg[cpu]
-ultralytics
-opencv-python-headless
-pillow>=10.0.0
-numpy>=1.24.0
-flower>=2.0.0
-
-# Утилиты
-dataclasses-json==0.6.3
-
-# Env
-python-dotenv>=1.0.0
-celery
-
-# Celery + Redis
 celery>=5.4.0
 redis>=5.0.0
 python-dotenv>=1.0.0
-
-# HTTP клиент
 httpx>=0.28.0
+dataclasses-json==0.6.3

@@ -1,24 +1,62 @@
 services:
 
   worker:
-    build: .
-    command: celery -A celery_app worker --loglevel=info -P solo --concurrency=1
+    build:
+      context: .
+      target: worker
+    image: cr.yandex/crpst0vun14nhj0vd6po/coty-worker:latest
     env_file: .env
     volumes:
       - photos_tmp:/tmp/photos
+      - ./yolo26x-pose.pt:/app/yolo26x-pose.pt:ro
+    networks:
+      - coty_network
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+          cpus: "2.0"
+        reservations:
+          memory: 1G
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   flower:
-    build: .
-    command: celery -A celery_app flower --port=5555
+    build:
+      context: .
+      target: flower
+    image: cr.yandex/crpst0vun14nhj0vd6po/coty-flower:latest
     env_file: .env
-    ports:
-      - "5555:5555"
+    environment:
+      - FLOWER_URL_PREFIX=flower
+#    ports:
+#      - "5555:5555"
+    networks:
+      - coty_network
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.5"
+        reservations:
+          memory: 64M
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"
 
-# Shared volume — API сохраняет фото сюда, воркер читает отсюда.
-# Если оба репо на одной машине — volume должен быть общим.
 volumes:
   photos_tmp:
     external: true
     name: coty_body_api_photos_tmp
+
+networks:
+  coty_network:
+    external: true
+    name: coty_body_api_default

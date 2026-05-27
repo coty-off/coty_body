@@ -33,9 +33,10 @@ def _get_estimator() -> tuple[PoseEstimator, AppConfig]:
         )
     return _estimator, _config
 
+
 @celery.task(
-    name="analyze_photo",   # имя по которому api.py вызывает задачу через send_task
-    bind=True,              # доступ к self для retry
+    name="analyze_photo",
+    bind=True,
     max_retries=3,
     default_retry_delay=10,
 )
@@ -80,10 +81,8 @@ def analyze_photo(
             estimator=estimator,
         )
 
-        front_file.unlink(missing_ok=True)
-        side_file.unlink(missing_ok=True)
-
         measurements = result.get("measurements", {})
+
         _save_to_db(
             user_id=user_id,
             chest_cm=measurements.get("chest", {}).get("circumference_cm"),
@@ -93,6 +92,10 @@ def analyze_photo(
             body_type=result.get("body_type"),
         )
 
+        # Удаляем файлы ТОЛЬКО после успешного завершения всего
+        front_file.unlink(missing_ok=True)
+        side_file.unlink(missing_ok=True)
+
         return {
             "measurements": measurements,
             "body_type": result.get("body_type"),
@@ -100,16 +103,18 @@ def analyze_photo(
         }
 
     except FileNotFoundError:
+        # Файлов нет — retry бессмысленен
         raise
 
     except RuntimeError:
+        # YOLO не нашёл человека — retry бессмысленен
         front_file.unlink(missing_ok=True)
         side_file.unlink(missing_ok=True)
         raise
 
     except Exception as exc:
-        front_file.unlink(missing_ok=True)
-        side_file.unlink(missing_ok=True)
+        # Временная ошибка (сеть, память) — retry имеет смысл
+        # Файлы НЕ удаляем, чтобы retry мог их использовать
         raise self.retry(exc=exc)
 
 
@@ -121,23 +126,17 @@ def _save_to_db(
     height_cm: float,
     body_type: str | None,
 ) -> None:
-
-    try:
-        with httpx.Client(timeout=10) as client:
-            client.post(
-                f"{API_INTERNAL_URL}/internal/measurements",
-                json={
-                    "user_id": user_id,
-                    "chest_cm": chest_cm,
-                    "waist_cm": waist_cm,
-                    "hips_cm": hips_cm,
-                    "height_cm": height_cm,
-                    "body_type": body_type,
-                    "source": "auto",
-                },
-                headers={"x-internal-key": INTERNAL_API_KEY},
-            )
-    except Exception:
-        # Не удалось сохранить - не роняем задачу,
-        # результат всё равно вернётся в кedis
-        pass
+    with httpx.Client(timeout=10) as client:
+        client.post(
+            f"{API_INTERNAL_URL}/internal/measurements",
+            json={
+                "user_id": user_id,
+                "chest_cm": chest_cm,
+                "waist_cm": waist_cm,
+                "hips_cm": hips_cm,
+                "height_cm": height_cm,
+                "body_type": body_type,
+                "source": "auto",
+            },
+            headers={"x-internal-key": INTERNAL_API_KEY},
+        )
